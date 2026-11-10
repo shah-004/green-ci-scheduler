@@ -1,0 +1,79 @@
+name: GreenOps CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      simulated_intensity:
+        description: 'Simulated Grid Carbon Intensity (gCO2/kWh)'
+        required: true
+        default: '100'
+        type: string
+
+jobs:
+  carbon-gate:
+    runs-on: ubuntu-latest
+    outputs:
+      mode: ${{ steps.set-mode.outputs.mode }}
+      intensity: ${{ steps.set-mode.outputs.intensity }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install Dependencies
+        run: |
+          pip install pyyaml requests
+
+      - name: Run Carbon Decision Engine
+        id: set-mode
+        env:
+          SIMULATE_INTENSITY: ${{ github.event.inputs.simulated_intensity || '100' }}
+        run: |
+          python scheduler/decide.py
+
+  test-and-lint:
+    needs: carbon-gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install Test Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install flask pytest flake8
+
+      - name: Run Unit Tests
+        run: |
+          pytest
+
+  deploy-or-trim:
+    needs: [carbon-gate, test-and-lint]
+    runs-on: ubuntu-latest
+    if: needs.carbon-gate.outputs.mode != 'red'
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Log Execution & CO2 Estimate
+        env:
+          MODE: ${{ needs.carbon-gate.outputs.mode }}
+          INTENSITY: ${{ needs.carbon-gate.outputs.intensity }}
+        run: |
+          python -c "from scheduler.estimate import log_run; log_run('$MODE', float('$INTENSITY'), 5.0)"
+          git config --global user.name 'GreenOps Bot'
+          git config --global user.email 'bot@greenops.local'
+          git add data/runs.csv
+          git commit -m 'Auto-log run emissions [skip ci]' || echo 'No changes to commit'
+          git push || echo 'Push skipped'
