@@ -1,5 +1,0 @@
-thresholds:
-  amber: 150
-  red: 250
-max_wait_seconds: 120
-assumed_power_kw: 0.05
