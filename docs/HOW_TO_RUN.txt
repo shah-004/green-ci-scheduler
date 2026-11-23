@@ -1,0 +1,259 @@
+====================================================================
+  HOW TO SET UP AND RUN GREENOPS CI
+  Step-by-step guide for getting started from scratch
+====================================================================
+
+
+--------------------------------------------------------------------
+  WHAT YOU NEED BEFORE YOU START
+--------------------------------------------------------------------
+
+  - Python 3.10 or newer installed on your computer
+    (Check by running: python --version)
+
+  - A terminal / command prompt (PowerShell on Windows,
+    Terminal on Mac/Linux)
+
+  - That's it. No Docker, no databases, no cloud account needed
+    to run it locally.
+
+
+--------------------------------------------------------------------
+  STEP 1 — GET THE CODE
+--------------------------------------------------------------------
+
+If you have Git installed, clone the repository:
+
+    git clone <your-repo-url>
+    cd green-ci-scheduler
+
+Or simply download the zip file from GitHub and extract it,
+then open a terminal inside the green-ci-scheduler folder.
+
+
+--------------------------------------------------------------------
+  STEP 2 — SET UP A VIRTUAL ENVIRONMENT
+--------------------------------------------------------------------
+
+A virtual environment keeps the project's Python libraries separate
+from the rest of your computer. Think of it as a clean, isolated
+box for this project.
+
+  On Windows (PowerShell):
+    python -m venv venv
+    .\venv\Scripts\Activate.ps1
+
+  On Mac / Linux:
+    python3 -m venv venv
+    source venv/bin/activate
+
+You'll know it worked when you see "(venv)" at the start of your
+terminal prompt.
+
+
+--------------------------------------------------------------------
+  STEP 3 — INSTALL DEPENDENCIES
+--------------------------------------------------------------------
+
+Now install all the Python libraries the project needs:
+
+    pip install -r requirements.txt
+
+This installs Flask (the web server), Requests (for the live grid
+API), pytest (for running tests), flake8 (for code quality checks),
+and a handful of other small packages.
+
+It should finish in under a minute.
+
+
+--------------------------------------------------------------------
+  STEP 4 — START THE DASHBOARD
+--------------------------------------------------------------------
+
+Run this command to start the web server:
+
+  On Windows:
+    .\venv\Scripts\python app\app.py
+
+  On Mac / Linux:
+    python app/app.py
+
+You should see output like this:
+
+    Carbon-Aware CI/CD Scheduler running at http://localhost:5000
+     * Running on http://0.0.0.0:5000
+     * Debug mode: on
+
+Now open your web browser and go to:
+
+    http://localhost:5000
+
+The GreenOps CI dashboard will appear.
+
+To stop the server, press Ctrl + C in the terminal.
+
+
+--------------------------------------------------------------------
+  STEP 5 — TRY IT OUT
+--------------------------------------------------------------------
+
+Here are some things to try in the dashboard right away:
+
+  a) Click "Run Test CI Job Now" on the Dashboard screen.
+     Watch the terminal at the bottom fill up with live logs
+     showing the carbon gate decision.
+
+  b) Switch to the "Simulation Room" tab on the left sidebar.
+     Move the slider to 320 (Red mode) and click
+     "Apply Simulation Override". Then go back to the Dashboard
+     and trigger another job — watch it get DEFERRED.
+
+  c) Move the slider to 65 (Green mode) and trigger another job —
+     watch it execute immediately at full speed.
+
+  d) Switch to the "Pipelines & Jobs" tab to see the history table
+     of all jobs, their modes, and emissions.
+
+  e) Switch to "Settings", change the Green threshold from 100 to
+     120, click "Save Configuration", then run a new job and see
+     how the boundary affects the decision.
+
+  f) Click "Reset to Defaults" in Settings to wipe the demo data
+     and start fresh.
+
+
+--------------------------------------------------------------------
+  RUNNING THE AUTOMATED TESTS
+--------------------------------------------------------------------
+
+The project has 10 automated tests that check every part of the
+system. Run them with:
+
+    .\venv\Scripts\pytest          (Windows)
+    pytest                          (Mac/Linux)
+
+You should see something like:
+
+    10 passed in 0.89s
+
+To also check the code for style and formatting issues:
+
+    .\venv\Scripts\flake8 app scheduler --max-line-length=160
+
+
+--------------------------------------------------------------------
+  RUNNING THE GITHUB ACTIONS WORKFLOW LOCALLY (OPTIONAL)
+--------------------------------------------------------------------
+
+The project includes a GitHub Actions workflow file at:
+
+    .github/workflows/green-ci.yml
+
+This is designed to run automatically when you push code to GitHub.
+It evaluates the live carbon intensity and either:
+  - Runs the test suite (Green or Amber mode), or
+  - Skips the deploy step (Red mode)
+
+To test this locally without GitHub, you can simulate a carbon
+intensity using an environment variable:
+
+  On Windows (PowerShell):
+    $env:SIMULATE_INTENSITY = "80"
+    .\venv\Scripts\python scheduler\decide.py
+
+  On Mac / Linux:
+    SIMULATE_INTENSITY=80 python scheduler/decide.py
+
+Change 80 to any number to test Green (below 100),
+Amber (100–250), or Red (above 250) modes.
+
+
+--------------------------------------------------------------------
+  WHERE DOES THE DATA GO?
+--------------------------------------------------------------------
+
+The project stores data locally in a "data/" folder:
+
+  data/jobs.json          A list of all pipeline job records,
+                          including emissions and decision logs.
+
+  data/runs.csv           A CSV spreadsheet log of every job
+                          that executed — timestamps, mode,
+                          intensity, energy used, CO2 emitted.
+
+  data/runtime_state.json The active simulation settings and
+                          any overrides currently in effect.
+
+These files are created automatically the first time you run the
+app. You can delete them anytime to start fresh (or use the
+"Reset to Defaults" button in the Settings screen).
+
+
+--------------------------------------------------------------------
+  CHANGING CONFIGURATION
+--------------------------------------------------------------------
+
+The main configuration file is:
+
+    scheduler/config.yaml
+
+It looks like this:
+
+    thresholds:
+      green: 100
+      amber: 250
+    max_wait_seconds: 120
+    assumed_power_kw: 0.05
+    provider: neso_uk
+
+You can edit this file directly in any text editor, or use the
+Settings screen in the dashboard (which saves changes to this
+file automatically).
+
+Key settings explained:
+
+  thresholds.green    The gCO2/kWh value below which the grid is
+                      considered clean enough for full dispatch.
+                      Default: 100
+
+  thresholds.amber    The upper limit for amber mode. Above this,
+                      the grid triggers RED and jobs are deferred.
+                      Default: 250
+
+  assumed_power_kw    How much power your CI runners use, in kW.
+                      A standard 2-core GitHub Actions VM uses
+                      about 0.05 kW (50 watts). Adjust this if
+                      your runners are bigger or smaller.
+
+  max_wait_seconds    The maximum number of seconds a job will
+                      wait in queue before being force-dispatched
+                      regardless of grid status. Default: 120.
+
+  provider            Where to get carbon intensity data.
+                      "neso_uk" = UK National Grid ESO (free, no key)
+                      "custom_webhook" = your own API endpoint
+
+
+--------------------------------------------------------------------
+  USING A CUSTOM CARBON DATA PROVIDER
+--------------------------------------------------------------------
+
+If you want to connect to a service other than the UK National
+Grid (for example: ElectricityMaps, WattTime, or your own
+internal sustainability API), go to the Settings screen and:
+
+  1. Select "Custom Webhook / Internal API"
+  2. Enter your API endpoint URL
+  3. Enter your Bearer token / API key (if required)
+  4. Click "Save Configuration"
+
+Your API endpoint should return JSON with a field called either
+"intensity" or "carbon_intensity" containing the gCO2/kWh value.
+
+Example response format your API should return:
+    { "intensity": 142.5 }
+
+====================================================================
+  END OF SETUP GUIDE
+====================================================================
+

@@ -1,0 +1,253 @@
+====================================================================
+  GREENOPS CI — WHAT IS THIS PROJECT AND HOW DOES IT WORK?
+  (Written in simple, plain English)
+====================================================================
+
+
+--------------------------------------------------------------------
+  THE PROBLEM IT SOLVES
+--------------------------------------------------------------------
+
+Every time a software team pushes new code, automated systems kick
+in to check it — running tests, building the app, packaging it into
+containers, and deploying it. These automated checks are called
+"CI/CD pipelines" (CI = Continuous Integration, CD = Continuous
+Delivery).
+
+The problem? These pipelines run immediately, 24/7, no matter what
+time of day it is or how dirty the electricity being used is.
+
+Electricity is not equally clean at all hours. During the day when
+the wind is blowing or the sun is shining, the electrical grid is
+mostly powered by renewable energy (wind turbines, solar panels).
+But in the evenings or during cold, still winter days, the grid
+often falls back on gas or coal power stations — which release a
+lot of carbon dioxide (CO2) into the atmosphere.
+
+GreenOps CI is a tool that teaches your software pipelines to be
+smarter about WHEN they run — choosing cleaner, greener moments
+to do their heavy computing work, and pausing or waiting when the
+grid is running mostly on fossil fuels.
+
+
+--------------------------------------------------------------------
+  THE CORE IDEA IN ONE SENTENCE
+--------------------------------------------------------------------
+
+"Don't run your builds when the electricity is dirty —
+ wait for the wind to pick up, then go full speed."
+
+
+--------------------------------------------------------------------
+  HOW DOES IT MEASURE "DIRTY" vs "CLEAN" ELECTRICITY?
+--------------------------------------------------------------------
+
+The tool connects to the National Grid ESO (Electricity System
+Operator) in the UK, which publishes a live number every 30 minutes
+called "carbon intensity". This number, measured in grams of CO2
+per kilowatt-hour (gCO2/kWh), tells you how much carbon is being
+released to generate each unit of electricity right now.
+
+  - A LOW number (e.g. 65 gCO2/kWh)  = mostly wind and solar
+  - A MEDIUM number (e.g. 150)        = mixed sources
+  - A HIGH number (e.g. 300+)         = mostly gas and coal
+
+The tool checks this number every few seconds and makes a decision.
+
+
+--------------------------------------------------------------------
+  THE THREE MODES (TRAFFIC LIGHT SYSTEM)
+--------------------------------------------------------------------
+
+Based on the live carbon intensity number, the scheduler puts the
+grid into one of three "modes" — just like a traffic light:
+
+  GREEN  (below 100 gCO2/kWh)
+  -------------------------------------------------------
+  The grid is running cleanly. Renewable energy is high.
+  → ALL pipelines run immediately at full speed.
+  → Docker builds, test suites, deployments — all go.
+
+  AMBER  (100 to 250 gCO2/kWh)
+  -------------------------------------------------------
+  The grid is a mix of clean and fossil-fuel generation.
+  → Important, quick jobs (like fast unit tests) still run.
+  → Big, heavy jobs (like building large Docker images) are
+    slowed down or given lower priority to reduce emissions.
+
+  RED    (above 250 gCO2/kWh)
+  -------------------------------------------------------
+  The grid is mostly fossil fuels right now.
+  → Non-urgent pipelines are PAUSED and placed in a queue.
+  → They wait until the carbon intensity drops back down.
+  → Urgent hotfixes can still be "force dispatched" to bypass
+    this rule if a team needs to push something critical.
+
+
+--------------------------------------------------------------------
+  THE 5 SCREENS IN THE DASHBOARD
+--------------------------------------------------------------------
+
+The project comes with a web application you can open in your
+browser. It has five main screens:
+
+  1. DASHBOARD (Home)
+     The main screen. Shows the current carbon intensity as a
+     big number (e.g. "142 gCO2/kWh"), a glowing traffic-light
+     dot showing the current mode, and a live terminal at the
+     bottom showing what the system is doing in real time.
+     You can also click "Run Test CI Job Now" to trigger a
+     sample pipeline and watch the carbon gate decision play out.
+
+  2. PIPELINES & JOBS MANAGER
+     A table showing all the recent CI/CD jobs — when they ran,
+     what the carbon intensity was at that moment, whether they
+     executed successfully or were deferred/paused, and how much
+     CO2 was emitted vs. what it would have been without the tool.
+     You can search, filter by mode (Green/Amber/Red), and view
+     the logs for each job.
+
+  3. ANALYTICS & CARBON SAVINGS
+     Charts and numbers showing the total environmental impact
+     of the tool over time. How many kilograms of CO2 were
+     avoided? How many jobs ran during green windows vs. red?
+     Equivalent impact shown in human-friendly terms like
+     "equivalent to 2.2 trees working for a year" or
+     "saved 121 miles of EV driving emissions."
+
+  4. SIMULATION ROOM (Demo / Testing Mode)
+     A control panel where you can manually pretend the carbon
+     intensity is any number you want — using a slider or typing
+     a value. This is useful for:
+       - Demos: showing how the system would behave at 65 (green)
+         vs 310 (red) without waiting for the real grid to change.
+       - Testing: verifying your threshold settings actually work.
+     You can click one-touch buttons like "Evening Gas Surge
+     (310 gCO2/kWh)" or "High Offshore Wind (65 gCO2/kWh)" and
+     instantly see how the pipeline scheduler would respond.
+
+  5. SETTINGS
+     Where you configure the system:
+       - Change the Green/Amber/Red threshold numbers.
+       - Switch the data source between the UK National Grid
+         API and your own custom webhook/internal API.
+       - Adjust how much power your CI runners consume (used
+         to calculate CO2 emissions accurately).
+       - Set the maximum time a job is allowed to wait before
+         it gets dispatched regardless of grid status.
+
+
+--------------------------------------------------------------------
+  WHAT HAPPENS BEHIND THE SCENES WHEN A JOB IS TRIGGERED?
+--------------------------------------------------------------------
+
+Here is the step-by-step journey of a typical CI/CD pipeline job
+going through the GreenOps system:
+
+  Step 1: Code is pushed → pipeline trigger fires.
+
+  Step 2: Before running anything, the scheduler checks the
+          live UK grid carbon intensity number.
+
+  Step 3: The number is compared against your thresholds:
+            - Below 100?  → GREEN mode → dispatch now.
+            - 100 to 250? → AMBER mode → dispatch with limits.
+            - Above 250?  → RED mode → pause and queue.
+
+  Step 4: If dispatched, the job runs on a CI runner (a small
+          virtual machine in the cloud), and the energy used and
+          CO2 emitted are calculated and logged.
+
+  Step 5: If deferred (RED mode), the job waits in a queue.
+          The system re-checks the grid every few minutes. When
+          the intensity drops, the job is automatically released.
+
+  Step 6: All results (mode, intensity at time of run, emissions,
+          energy used, carbon saved vs baseline) are recorded in
+          a CSV log file for auditing and reporting.
+
+
+--------------------------------------------------------------------
+  THE KEY FILES IN THIS PROJECT
+--------------------------------------------------------------------
+
+  scheduler/decide.py
+    The "brain" — checks carbon intensity and decides Green,
+    Amber, or Red mode.
+
+  scheduler/config.yaml
+    Your settings file — where you set the threshold numbers
+    and configure the data provider.
+
+  scheduler/estimate.py
+    Does the maths — calculates how much energy (kWh) and
+    carbon (gCO2) each pipeline job produces.
+
+  scheduler/job_manager.py
+    Manages the list of jobs — dispatching them, deferring
+    them, logging them, and generating the analytics data.
+
+  app/app.py
+    The web server — handles requests from the browser and
+    connects the dashboard to the scheduling logic.
+
+  app/templates/index.html + app/static/js/app.js
+    The dashboard itself — the five-screen web UI you see
+    in the browser.
+
+
+--------------------------------------------------------------------
+  WHY DOES THIS MATTER?
+--------------------------------------------------------------------
+
+The software industry is one of the fastest-growing consumers of
+electricity in the world. Data centers and CI/CD systems alone
+account for a significant and growing share of global energy use.
+
+Most of that compute is "dumb" — it runs whenever it's triggered,
+regardless of whether the electricity powering it is clean or dirty.
+
+GreenOps CI is a proof of concept that shows how easy it can be
+to make software infrastructure "carbon-aware" — able to shift
+workloads to times when renewable energy is plentiful, without
+significantly impacting developer productivity.
+
+The average delay for a deferred pipeline is about 18 minutes.
+The average carbon saving is around 60% compared to always-on CI.
+
+For large engineering organisations running thousands of pipelines
+per day, this kind of time-shifting could save tonnes of CO2 per
+year with almost no change to how developers write or ship code.
+
+
+--------------------------------------------------------------------
+  QUICK GLOSSARY
+--------------------------------------------------------------------
+
+  CI/CD Pipeline   A sequence of automated steps that test, build,
+                   and deploy software whenever a developer commits
+                   new code.
+
+  Carbon Intensity The amount of CO2 produced per unit of
+                   electricity, measured in gCO2/kWh. Lower = cleaner.
+
+  gCO2/kWh         Grams of CO2 per kilowatt-hour. The unit used to
+                   measure how dirty or clean electricity is at any
+                   given moment.
+
+  Deferral         When a pipeline job is intentionally paused and
+                   placed in a waiting queue until grid emissions drop.
+
+  Force Dispatch   Bypassing the carbon gate to run a job immediately
+                   even during a red-alert period (for emergencies).
+
+  Scope 2 Carbon   The indirect carbon emissions from the electricity
+                   your organisation buys and consumes.
+
+  Renewable Window A period when the grid is running mostly on clean
+                   sources like wind, solar, or hydro power.
+
+====================================================================
+  END OF EXPLAINER
+====================================================================
+

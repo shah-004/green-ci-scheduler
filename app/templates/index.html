@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GreenOps CI | Carbon-Aware CI/CD Scheduler</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              dark: '#0b0f17',
+              sidebar: '#0d121f',
+              card: '#131b2e',
+              border: '#1e293b'
+            }
+          }
+        }
+      }
+    };
+  </script>
+
+  <!-- Font Awesome 6 Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+  <!-- Chart.js for Interactive Visualizations -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- Custom Dark Theme Styles & Fallbacks -->
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+
+<body class="bg-[#0b0f17] text-slate-100 min-h-screen flex flex-col antialiased selection:bg-emerald-500 selection:text-white">
+
+  <!-- ================= Top Navigation Bar ================= -->
+  <header class="h-16 border-b border-slate-800/80 bg-[#0d121f]/90 backdrop-blur-md sticky top-0 z-40 px-4 lg:px-6 flex items-center justify-between">
+    <!-- Brand / Logo -->
+    <div class="flex items-center gap-3">
+      <button id="btn-mobile-menu" class="lg:hidden text-slate-400 hover:text-white p-2">
+        <i class="fa-solid fa-bars text-lg"></i>
+      </button>
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.2)]">
+          <i class="fa-solid fa-leaf text-lg"></i>
+        </div>
+        <div>
+          <span class="font-extrabold text-base tracking-tight text-white flex items-center gap-1.5">
+            GreenOps <span class="text-emerald-400 font-mono text-xs uppercase px-1.5 py-0.5 rounded bg-emerald-950 border border-emerald-800/80">CI/CD</span>
+          </span>
+          <span class="text-[11px] text-slate-400 block -mt-0.5 font-medium">Carbon-Aware Build Orchestrator</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Live Telemetry Status Ticker -->
+    <div class="hidden sm:flex items-center gap-4">
+      <!-- Live Grid Mode Indicator -->
+      <div id="header-status-badge" class="px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 badge-amber">
+        <span class="pulse-light pulse-amber"></span>
+        <span>CONNECTING...</span>
+      </div>
+
+      <!-- Simulation Mode Active Pill -->
+      <div id="header-sim-pill" class="hidden items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wider bg-purple-950/80 text-purple-300 border border-purple-700/60 shadow-[0_0_12px_rgba(168,85,247,0.3)]">
+        <i class="fa-solid fa-flask-vial"></i> SIMULATION ACTIVE
+      </div>
+
+      <!-- Provider Indicator -->
+      <div class="text-xs text-slate-400 font-mono hidden md:flex items-center gap-1.5">
+        <i class="fa-solid fa-tower-broadcast text-slate-500"></i>
+        <span id="header-provider-name">NESO National Grid UK</span>
+      </div>
+    </div>
+
+    <!-- Right Header Actions -->
+    <div class="flex items-center gap-2.5">
+      <button id="btn-nav-run-job" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-3.5 py-2 rounded-lg flex items-center gap-2 transition shadow-[0_0_15px_rgba(16,185,129,0.25)]">
+        <i class="fa-solid fa-play text-[11px]"></i>
+        <span>Trigger CI Job</span>
+      </button>
+      <a href="https://carbonintensity.org.uk" target="_blank" rel="noopener noreferrer" title="NESO UK Carbon Intensity" class="text-slate-400 hover:text-white p-2 rounded-lg hover:bg-slate-800/60 transition text-sm">
+        <i class="fa-solid fa-arrow-up-right-from-square"></i>
+      </a>
+    </div>
+  </header>
+
+  <!-- ================= Main App Shell ================= -->
+  <div class="flex-1 flex overflow-hidden">
+
+    <!-- Responsive Sidebar Navigation -->
+    <aside id="app-sidebar" class="w-64 border-r border-slate-800/80 bg-[#0d121f] flex flex-col justify-between shrink-0 hidden lg:flex">
+      <div class="p-4 space-y-6">
+        <div>
+          <div class="text-[11px] uppercase tracking-wider font-bold text-slate-400 px-3 mb-2">Navigation</div>
+          <nav class="space-y-1">
+            <!-- 1. Dashboard / Overview -->
+            <a href="#dashboard" data-view="dashboard" class="nav-link active flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium text-slate-300">
+              <i class="fa-solid fa-gauge-high w-4 text-center"></i>
+              <span>Dashboard Overview</span>
+            </a>
+
+            <!-- 2. Pipelines & Jobs Manager -->
+            <a href="#pipelines" data-view="pipelines" class="nav-link flex items-center justify-between px-3.5 py-2.5 rounded-lg text-sm font-medium text-slate-300">
+              <div class="flex items-center gap-3">
+                <i class="fa-solid fa-bars-progress w-4 text-center"></i>
+                <span>Pipelines & Jobs</span>
+              </div>
+              <span id="jobs-count-badge" class="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded font-mono">8 Jobs</span>
+            </a>
+
+            <!-- 3. Analytics & Carbon Savings -->
+            <a href="#analytics" data-view="analytics" class="nav-link flex items-center justify-between px-3.5 py-2.5 rounded-lg text-sm font-medium text-slate-300">
+              <div class="flex items-center gap-3">
+                <i class="fa-solid fa-chart-line w-4 text-center"></i>
+                <span>Analytics & Savings</span>
+              </div>
+              <span class="text-[10px] bg-emerald-950 text-emerald-400 border border-emerald-800 px-1.5 py-0.5 rounded font-mono">Saved</span>
+            </a>
+
+            <!-- 4. Simulation & Control Room (Demo Mode) -->
+            <a href="#simulation" data-view="simulation" class="nav-link flex items-center justify-between px-3.5 py-2.5 rounded-lg text-sm font-medium text-slate-300">
+              <div class="flex items-center gap-3">
+                <i class="fa-solid fa-sliders w-4 text-center"></i>
+                <span>Simulation Room</span>
+              </div>
+              <span class="text-[10px] bg-purple-950 text-purple-300 border border-purple-800 px-1.5 py-0.5 rounded font-mono">Demo</span>
+            </a>
+
+            <!-- 5. Settings & Threshold Configuration -->
+            <a href="#settings" data-view="settings" class="nav-link flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium text-slate-300">
+              <i class="fa-solid fa-gear w-4 text-center"></i>
+              <span>Settings & Thresholds</span>
+            </a>
+          </nav>
+        </div>
+
+        <!-- System Architecture Pill Card -->
+        <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800/80 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-slate-200">Execution Policy</span>
+            <span class="text-[10px] font-mono text-emerald-400">v2.4 Active</span>
+          </div>
+          <p class="text-[11px] text-slate-400 leading-relaxed">
+            Greenshift scheduler queues resource-intensive builds during high grid carbon peaks.
+          </p>
+          <div class="pt-1 flex items-center gap-2 text-[10px] text-slate-400 font-mono">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
+            <span>Runner Fleet: Online</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- User / Workspace Info Footer -->
+      <div class="p-4 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
+        <div class="flex items-center gap-2">
+          <div class="w-6 h-6 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-300">
+            <i class="fa-solid fa-terminal text-[10px]"></i>
+          </div>
+          <span class="font-mono">green-ci-local</span>
+        </div>
+        <span class="text-[11px] text-slate-400 font-mono">Port: 5000</span>
+      </div>
+    </aside>
+
+    <!-- Content Workspace -->
+    <main class="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 space-y-6">
+
+      <!-- ===================================================================
+           VIEW 1: DASHBOARD / OVERVIEW
+           =================================================================== -->
+      <section id="view-dashboard" class="view-section space-y-6">
+        
+        <!-- View Title & Top Ticker -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-800/60">
+          <div>
+            <h1 class="text-2xl font-black tracking-tight text-white flex items-center gap-2.5">
+              <span>Grid Carbon Telemetry</span>
+              <span class="text-xs font-normal text-slate-400 font-mono px-2 py-0.5 rounded bg-slate-800/80 border border-slate-700">Live Stream</span>
+            </h1>
+            <p class="text-sm text-slate-400 mt-0.5">Real-time UK electrical grid emissions and CI/CD pipeline dispatch status.</p>
+          </div>
+          
+          <div class="flex items-center gap-2.5">
+            <button id="btn-run-test-job" class="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs px-4 py-2.5 rounded-lg flex items-center gap-2 transition shadow-[0_0_20px_rgba(16,185,129,0.3)]">
+              <i class="fa-solid fa-play"></i>
+              <span>Run Test CI Job Now</span>
+            </button>
+            <a href="#simulation" onclick="switchView('simulation')" class="bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium px-3.5 py-2.5 rounded-lg border border-slate-700 transition flex items-center gap-1.5">
+              <i class="fa-solid fa-sliders"></i>
+              <span>Control Room</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- Hero Metric Cards Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          
+          <!-- Card 1: Large Number Real-Time Metric (Main Focus) -->
+          <div id="card-carbon-intensity" class="glass-card p-5 md:col-span-2 relative overflow-hidden flex flex-col justify-between">
+            <div class="flex items-start justify-between">
+              <div>
+                <span class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                  <i class="fa-solid fa-bolt-lightning text-amber-400"></i>
+                  Current Grid Carbon Intensity
+                </span>
+                <span class="text-[11px] text-slate-400">National Grid ESO (UK Generation Mix)</span>
+              </div>
+              <div id="dashboard-mode-badge" class="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider badge-amber">
+                AMBER MODE
+              </div>
+            </div>
+
+            <!-- Large Number Display -->
+            <div class="my-4 flex items-baseline gap-3">
+              <div id="metric-intensity-val" class="metric-value-huge glow-amber">
+                142
+              </div>
+              <div class="space-y-0.5">
+                <span class="text-base font-bold text-slate-300 font-mono">gCO2/kWh</span>
+                <div class="text-xs text-emerald-400 flex items-center gap-1">
+                  <i class="fa-solid fa-arrow-trend-down"></i>
+                  <span>-18% vs daily peak</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Dynamic Gauge Bar -->
+            <div class="space-y-2">
+              <div class="flex justify-between text-[11px] font-mono text-slate-400">
+                <span class="text-emerald-400 font-semibold">Green &lt; 100</span>
+                <span class="text-amber-400 font-semibold">Amber 100 - 250</span>
+                <span class="text-red-400 font-semibold">Red &gt; 250</span>
+              </div>
+              <div class="gauge-meter-bar">
+                <div id="dashboard-gauge-pin" class="gauge-pin" style="left: 35.5%;"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 2: Carbon Avoided Today -->
+          <div class="glass-card p-5 flex flex-col justify-between">
+            <div class="flex items-center justify-between text-slate-400 text-xs font-bold uppercase tracking-wider">
+              <span>Emissions Saved</span>
+              <i class="fa-solid fa-seedling text-emerald-400 text-base"></i>
+            </div>
+            <div class="my-3">
+              <div id="stat-saved-kg" class="text-3xl font-extrabold text-white font-mono">
+                48.75 kg
+              </div>
+              <div class="text-xs text-slate-400 mt-1">Total CO2 avoided vs unmanaged CI</div>
+            </div>
+            <div class="text-[11px] text-emerald-400 font-medium flex items-center gap-1.5 pt-2 border-t border-slate-800/80">
+              <i class="fa-solid fa-tree"></i>
+              <span>Equiv. to ~2.2 trees absorbed/year</span>
+            </div>
+          </div>
+
+          <!-- Card 3: Queued & Deferred Pipelines -->
+          <div class="glass-card p-5 flex flex-col justify-between">
+            <div class="flex items-center justify-between text-slate-400 text-xs font-bold uppercase tracking-wider">
+              <span>Pipeline Queues</span>
+              <i class="fa-solid fa-layer-group text-sky-400 text-base"></i>
+            </div>
+            <div class="my-3 flex items-baseline gap-3">
+              <div id="stat-jobs-count" class="text-3xl font-extrabold text-white font-mono">8</div>
+              <div class="text-xs text-slate-400">
+                <span id="stat-deferred-count" class="text-red-400 font-bold font-mono text-sm">2</span> deferred in high-carbon gate
+              </div>
+            </div>
+            <div class="text-[11px] text-slate-400 flex items-center justify-between pt-2 border-t border-slate-800/80">
+              <span>Clean dispatch ratio</span>
+              <span class="text-emerald-400 font-bold font-mono">75.0%</span>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Pipeline Execution Mode Banner Alert -->
+        <div class="glass-card p-5 border-l-4 border-l-amber-500 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div class="flex items-start gap-3.5">
+            <div class="mt-1">
+              <span id="dashboard-status-light" class="pulse-light pulse-amber"></span>
+            </div>
+            <div>
+              <h3 id="dashboard-status-title" class="font-bold text-base text-white">Moderate Intensity - Constrained Dispatch Active</h3>
+              <p id="dashboard-status-desc" class="text-xs text-slate-400 mt-1 max-w-2xl leading-relaxed">
+                Critical unit tests and lightweight lints proceed immediately; large multi-arch container packaging and nightly benchmarks are batched or prioritized to minimize carbon footprint.
+              </p>
+            </div>
+          </div>
+          <div class="shrink-0 flex items-center gap-2">
+            <span class="text-xs text-slate-400 font-mono">Decision Gate:</span>
+            <span class="text-xs font-bold text-amber-400 bg-amber-950/80 border border-amber-800/60 px-2 py-1 rounded">ALLOW_CONSTRAINED</span>
+          </div>
+        </div>
+
+        <!-- Interactive Terminal / Console Log Container (Bottom of Overview) -->
+        <div class="terminal-window">
+          <!-- Terminal Header -->
+          <div class="terminal-header">
+            <div class="flex items-center gap-3">
+              <div class="terminal-dots">
+                <div class="terminal-dot dot-red"></div>
+                <div class="terminal-dot dot-yellow"></div>
+                <div class="terminal-dot dot-green"></div>
+              </div>
+              <div class="text-xs text-slate-400 font-mono flex items-center gap-2">
+                <i class="fa-solid fa-terminal text-slate-500"></i>
+                <span class="text-slate-200">greenops@runner-uk-gate:~ / live-dispatch-feedback</span>
+              </div>
+            </div>
+
+            <!-- Terminal Controls -->
+            <div class="flex items-center gap-2">
+              <button id="btn-terminal-autoscroll" class="text-xs text-emerald-400 hover:text-white px-2 py-1 rounded hover:bg-slate-800/60 transition" title="Toggle Auto-Scroll">
+                Auto-Scroll: ON
+              </button>
+              <button id="btn-terminal-copy" class="text-xs text-slate-400 hover:text-white px-2 py-1 rounded hover:bg-slate-800/60 transition" title="Copy Log Buffer">
+                <i class="fa-regular fa-copy mr-1"></i> Copy
+              </button>
+              <button id="btn-terminal-clear" class="text-xs text-slate-400 hover:text-white px-2 py-1 rounded hover:bg-slate-800/60 transition" title="Clear Console">
+                <i class="fa-solid fa-trash-can mr-1"></i> Clear
+              </button>
+            </div>
+          </div>
+
+          <!-- Terminal Log Body -->
+          <div id="terminal-body" class="terminal-body">
+            <div class="log-line text-slate-500">// Carbon-Aware CI/CD Dispatcher v2.4 initialized. Telemetry stream connected.</div>
+            <div class="log-line"><span class="log-timestamp">[01:00:00]</span><span class="log-info">[INIT] National Grid ESO Telemetry Provider: Active</span></div>
+            <div class="log-line"><span class="log-timestamp">[01:00:01]</span><span class="log-meta">[CONFIG] Thresholds loaded: Green &lt; 100 gCO2/kWh, Amber &lt; 250 gCO2/kWh, Red &gt;= 250 gCO2/kWh</span></div>
+            <div class="log-line"><span class="log-timestamp">[01:00:02]</span><span class="log-warning">[STATUS] Current intensity measured at 142.0 gCO2/kWh (AMBER - Moderate)</span></div>
+            <div class="log-line"><span class="log-timestamp">[01:00:03]</span><span class="log-success">[READY] Ready for job dispatch. Press 'Run Test CI Job Now' to observe live gate evaluation.</span></div>
+          </div>
+
+          <!-- Terminal CLI Input Bar -->
+          <form id="terminal-cli-form" class="bg-[#0b101d] px-4 py-2 border-t border-slate-800 flex items-center gap-2">
+            <span class="text-emerald-400 font-mono text-xs font-bold">$</span>
+            <input id="terminal-cli-input" type="text" placeholder="Type a command (e.g. 'green-ci run', 'green-ci status', 'sim 80', 'help')..." class="bg-transparent border-0 outline-none text-xs text-slate-200 font-mono w-full focus:ring-0 placeholder-slate-600">
+            <button type="submit" class="text-xs text-slate-400 hover:text-emerald-400 font-mono px-2 py-1 rounded transition">
+              <i class="fa-solid fa-arrow-turn-down"></i>
+            </button>
+          </form>
+        </div>
+
+      </section>
+
+      <!-- ===================================================================
+           VIEW 2: PIPELINES & JOBS MANAGER
+           =================================================================== -->
+      <section id="view-pipelines" class="view-section hidden space-y-6">
+        
+        <!-- Header -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-800/60">
+          <div>
+            <h1 class="text-2xl font-black tracking-tight text-white flex items-center gap-2.5">
+              <span>Pipelines & Jobs Manager</span>
+              <span class="text-xs font-normal text-slate-400 font-mono px-2 py-0.5 rounded bg-slate-800/80 border border-slate-700">Audit Log</span>
+            </h1>
+            <p class="text-sm text-slate-400 mt-0.5">Track recent CI/CD jobs, carbon intensity at execution, and deferral statuses.</p>
+          </div>
+
+          <button id="btn-trigger-new-job" class="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs px-4 py-2.5 rounded-lg flex items-center gap-2 transition shadow-[0_0_20px_rgba(16,185,129,0.25)]">
+            <i class="fa-solid fa-plus"></i>
+            <span>Trigger New Pipeline</span>
+          </button>
+        </div>
+
+        <!-- Filters & Search Toolbar -->
+        <div class="glass-card p-4 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+          <!-- Search Bar -->
+          <div class="relative flex-1">
+            <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 text-xs"></i>
+            <input id="jobs-search-input" type="text" placeholder="Filter by job name, branch, or commit hash..." class="w-full bg-slate-900/90 border border-slate-700/80 rounded-lg pl-9 pr-4 py-2 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition">
+          </div>
+
+          <!-- Dropdown Filters -->
+          <div class="flex items-center gap-3">
+            <div class="flex items-center gap-2">
+              <label for="jobs-filter-mode" class="text-xs text-slate-400">Mode:</label>
+              <select id="jobs-filter-mode" class="bg-slate-900 border border-slate-700/80 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500">
+                <option value="all">All Modes</option>
+                <option value="green">Green Only</option>
+                <option value="amber">Amber Only</option>
+                <option value="red">Red Only</option>
+              </select>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <label for="jobs-filter-status" class="text-xs text-slate-400">Status:</label>
+              <select id="jobs-filter-status" class="bg-slate-900 border border-slate-700/80 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500">
+                <option value="all">All Statuses</option>
+                <option value="executed">Executed Successfully</option>
+                <option value="deferred">Deferred / Paused</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pipelines Data Table -->
+        <div class="glass-card overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="border-b border-slate-800 bg-slate-900/80 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                  <th class="px-5 py-3.5">Pipeline Job & Branch</th>
+                  <th class="px-5 py-3.5">Trigger Time</th>
+                  <th class="px-5 py-3.5">Carbon Intensity</th>
+                  <th class="px-5 py-3.5">Evaluated Mode</th>
+                  <th class="px-5 py-3.5">Status</th>
+                  <th class="px-5 py-3.5 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="jobs-table-body" class="divide-y divide-slate-800/60 text-xs">
+                <!-- Dynamically rendered via app.js -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ===================================================================
+           VIEW 3: ANALYTICS & CARBON SAVINGS
+           =================================================================== -->
+      <section id="view-analytics" class="view-section hidden space-y-6">
+        
+        <!-- Header -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-800/60">
+          <div>
+            <h1 class="text-2xl font-black tracking-tight text-white flex items-center gap-2.5">
+              <span>Analytics & Carbon Savings</span>
+              <span class="text-xs font-normal text-emerald-400 font-mono px-2 py-0.5 rounded bg-emerald-950 border border-emerald-800">Verified Impact</span>
+            </h1>
+            <p class="text-sm text-slate-400 mt-0.5">Quantifiable carbon savings from shifting CI/CD compute into low-carbon grid windows.</p>
+          </div>
+
+          <div class="text-xs text-slate-400 font-mono flex items-center gap-2 bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-lg">
+            <i class="fa-solid fa-calendar-days text-slate-500"></i>
+            <span>Window: Last 24 Hours</span>
+          </div>
+        </div>
+
+        <!-- Summary KPI Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          
+          <div class="glass-card p-5 border-t-2 border-t-emerald-500">
+            <div class="flex items-center justify-between text-slate-400 text-xs font-bold uppercase tracking-wider">
+              <span>Total CO2 Saved</span>
+              <i class="fa-solid fa-shield-heart text-emerald-400 text-base"></i>
+            </div>
+            <div class="my-3">
+              <div id="analytics-total-saved-kg" class="text-3xl font-extrabold text-white font-mono">48.75 kg</div>
+              <div class="text-xs text-emerald-400 font-medium mt-1">-42.4% vs unmanaged CI/CD</div>
+            </div>
+            <div class="text-[11px] text-slate-400 pt-2 border-t border-slate-800/80">Calculated over 50 pipeline runs</div>
+          </div>
+
+          <div class="glass-card p-5 border-t-2 border-t-sky-500">
+            <div class="flex items-center justify-between text-slate-400 text-xs font-bold uppercase tracking-wider">
+              <span>Green Window Ratio</span>
+              <i class="fa-solid fa-sun-plant-wilt text-sky-400 text-base"></i>
+            </div>
+            <div class="my-3">
+              <div id="analytics-green-pct" class="text-3xl font-extrabold text-white font-mono">75.0%</div>
+              <div class="text-xs text-slate-400 mt-1">Jobs scheduled during low-carbon grid</div>
+            </div>
+            <div class="text-[11px] text-slate-400 pt-2 border-t border-slate-800/80">Target: &gt; 70% threshold</div>
+          </div>
+
+          <div class="glass-card p-5 border-t-2 border-t-amber-500">
+            <div class="flex items-center justify-between text-slate-400 text-xs font-bold uppercase tracking-wider">
+              <span>Tree Equivalency</span>
+              <i class="fa-solid fa-tree text-amber-400 text-base"></i>
+            </div>
+            <div class="my-3">
+              <div id="analytics-trees-equiv" class="text-3xl font-extrabold text-white font-mono">2.2</div>
+              <div class="text-xs text-slate-400 mt-1">Trees working full-time for 1 year</div>
+            </div>
+            <div class="text-[11px] text-slate-400 pt-2 border-t border-slate-800/80">EPA standard absorption metric</div>
+          </div>
+
+          <div class="glass-card p-5 border-t-2 border-t-indigo-500">
+            <div class="flex items-center justify-between text-slate-400 text-xs font-bold uppercase tracking-wider">
+              <span>EV Driving Saved</span>
+              <i class="fa-solid fa-car-battery text-indigo-400 text-base"></i>
+            </div>
+            <div class="my-3">
+              <div id="analytics-ev-miles" class="text-3xl font-extrabold text-white font-mono">121.9 mi</div>
+              <div class="text-xs text-slate-400 mt-1">Passenger electric vehicle travel</div>
+            </div>
+            <div class="text-[11px] text-slate-400 pt-2 border-t border-slate-800/80">Equivalent road emissions avoided</div>
+          </div>
+
+        </div>
+
+        <!-- Historical 24h Chart & Efficiency Doughnut -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          
+          <!-- 24-Hour Intensity Line Chart -->
+          <div class="glass-card p-5 lg:col-span-2 space-y-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="font-bold text-base text-white flex items-center gap-2">
+                  <i class="fa-solid fa-chart-area text-sky-400"></i>
+                  <span>24-Hour Grid Carbon Intensity Trends</span>
+                </h3>
+                <p class="text-xs text-slate-400 mt-0.5">Historical emission curve with active Green (100) and Alert (250) thresholds.</p>
+              </div>
+            </div>
+
+            <!-- Chart Container -->
+            <div class="h-64 relative">
+              <canvas id="chart-history-24h"></canvas>
+              <div id="chart-history-fallback" class="chart-container-fallback hidden"></div>
+            </div>
+          </div>
+
+          <!-- Efficiency Report Breakdown Donut -->
+          <div class="glass-card p-5 space-y-4 flex flex-col justify-between">
+            <div>
+              <h3 class="font-bold text-base text-white flex items-center gap-2">
+                <i class="fa-solid fa-chart-pie text-emerald-400"></i>
+                <span>Execution Distribution</span>
+              </h3>
+              <p class="text-xs text-slate-400 mt-0.5">Breakdown of CI jobs run across grid modes.</p>
+            </div>
+
+            <div class="h-48 relative flex items-center justify-center">
+              <canvas id="chart-efficiency-donut"></canvas>
+              <div id="chart-donut-fallback" class="chart-container-fallback hidden"></div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-2 pt-3 border-t border-slate-800 text-center text-xs">
+              <div>
+                <span class="block text-emerald-400 font-bold font-mono">6</span>
+                <span class="text-[10px] text-slate-400">Green</span>
+              </div>
+              <div>
+                <span class="block text-amber-400 font-bold font-mono">2</span>
+                <span class="text-[10px] text-slate-400">Amber</span>
+              </div>
+              <div>
+                <span class="block text-red-400 font-bold font-mono">2</span>
+                <span class="text-[10px] text-slate-400">Deferred</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Comparative Breakdown Table -->
+        <div class="glass-card p-5 space-y-3">
+          <h3 class="font-bold text-base text-white">Always-On CI vs Carbon-Aware Scheduler Comparison</h3>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead>
+                <tr class="border-b border-slate-800 text-slate-400">
+                  <th class="py-2.5">Architecture</th>
+                  <th class="py-2.5">Avg Emissions / Job</th>
+                  <th class="py-2.5">Peak Hour Handling</th>
+                  <th class="py-2.5">Avg Deferral Delay</th>
+                  <th class="py-2.5">Monthly Scope 2 Carbon</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-800/60 text-slate-300">
+                <tr>
+                  <td class="py-3 font-semibold text-slate-400">Standard Always-On CI (GitHub Actions Default)</td>
+                  <td class="py-3 font-mono text-red-400">4.62 gCO2</td>
+                  <td class="py-3 text-slate-400">Executes immediately regardless of coal/gas grid spikes</td>
+                  <td class="py-3 font-mono">0 min</td>
+                  <td class="py-3 font-mono text-slate-400" id="analytics-baseline-emitted">84.20 kg</td>
+                </tr>
+                <tr class="bg-emerald-950/20">
+                  <td class="py-3 font-semibold text-emerald-400 flex items-center gap-1.5">
+                    <i class="fa-solid fa-leaf"></i> GreenOps Carbon-Aware Scheduler
+                  </td>
+                  <td class="py-3 font-mono text-emerald-400 font-bold">1.84 gCO2 (-60.1%)</td>
+                  <td class="py-3 text-emerald-300">Defers non-critical builds to clean renewable windows</td>
+                  <td class="py-3 font-mono text-emerald-400">18.4 min</td>
+                  <td class="py-3 font-mono text-emerald-400 font-bold" id="analytics-total-emitted">35.45 kg</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ===================================================================
+           VIEW 4: SIMULATION & CONTROL ROOM (DEMO MODE)
+           =================================================================== -->
+      <section id="view-simulation" class="view-section hidden space-y-6">
+        
+        <!-- Header -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-800/60">
+          <div>
+            <h1 class="text-2xl font-black tracking-tight text-white flex items-center gap-2.5">
+              <span>Simulation & Control Room</span>
+              <span class="text-xs font-normal text-purple-400 font-mono px-2 py-0.5 rounded bg-purple-950 border border-purple-800">Demo Testing</span>
+            </h1>
+            <p class="text-sm text-slate-400 mt-0.5">Manually inject grid carbon intensity values to test scheduler behavioral responses.</p>
+          </div>
+
+          <!-- Master Simulation Toggle Switch -->
+          <div class="flex items-center gap-3 bg-slate-900 border border-slate-800 px-4 py-2 rounded-xl">
+            <span class="text-xs font-semibold text-slate-300">Override Mode</span>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input id="sim-master-toggle" type="checkbox" class="sr-only peer">
+              <div class="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+            </label>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          
+          <!-- Control Panel -->
+          <div class="glass-card p-6 space-y-6">
+            <div class="flex items-center justify-between">
+              <h3 class="font-bold text-base text-white flex items-center gap-2">
+                <i class="fa-solid fa-sliders text-purple-400"></i>
+                <span>Interactive Carbon Injector</span>
+              </h3>
+              <span class="text-xs font-mono text-slate-400">Range: 30 - 500 gCO2/kWh</span>
+            </div>
+
+            <!-- Slider & Numeric Input -->
+            <div class="space-y-3">
+              <div class="flex items-center justify-between">
+                <label for="sim-slider" class="text-xs text-slate-400 font-medium">Grid Carbon Intensity:</label>
+                <div class="flex items-center gap-2">
+                  <input id="sim-number-input" type="number" min="30" max="500" value="142" class="w-24 bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-sm font-mono font-bold text-purple-300 text-right focus:outline-none focus:border-purple-500">
+                  <span class="text-xs font-mono text-slate-400">gCO2/kWh</span>
+                </div>
+              </div>
+
+              <input id="sim-slider" type="range" min="30" max="500" value="142" class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-purple-500">
+              
+              <div class="flex justify-between text-[11px] font-mono text-slate-400">
+                <span>30 (Super Clean)</span>
+                <span>250 (Alert Threshold)</span>
+                <span>500 (Heavy Coal)</span>
+              </div>
+            </div>
+
+            <!-- Preset Scenarios -->
+            <div class="space-y-2.5">
+              <label class="text-xs text-slate-400 font-medium block">One-Click Grid Scenarios:</label>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <button class="btn-sim-preset text-left p-3 rounded-lg bg-slate-900/90 hover:bg-slate-800 border border-emerald-900/60 hover:border-emerald-600 transition" data-value="65">
+                  <div class="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
+                    <i class="fa-solid fa-wind"></i> High Offshore Wind
+                  </div>
+                  <div class="text-[11px] text-slate-400 font-mono mt-0.5">65 gCO2/kWh • Optimal Green</div>
+                </button>
+
+                <button class="btn-sim-preset text-left p-3 rounded-lg bg-slate-900/90 hover:bg-slate-800 border border-emerald-900/60 hover:border-emerald-600 transition" data-value="85">
+                  <div class="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
+                    <i class="fa-solid fa-sun"></i> Midday Solar Peak
+                  </div>
+                  <div class="text-[11px] text-slate-400 font-mono mt-0.5">85 gCO2/kWh • Optimal Green</div>
+                </button>
+
+                <button class="btn-sim-preset text-left p-3 rounded-lg bg-slate-900/90 hover:bg-slate-800 border border-amber-900/60 hover:border-amber-600 transition" data-value="175">
+                  <div class="text-xs font-bold text-amber-400 flex items-center gap-1.5">
+                    <i class="fa-solid fa-scale-balanced"></i> Typical Mixed Grid
+                  </div>
+                  <div class="text-[11px] text-slate-400 font-mono mt-0.5">175 gCO2/kWh • Amber Mode</div>
+                </button>
+
+                <button class="btn-sim-preset text-left p-3 rounded-lg bg-slate-900/90 hover:bg-slate-800 border border-red-900/60 hover:border-red-600 transition" data-value="310">
+                  <div class="text-xs font-bold text-red-400 flex items-center gap-1.5">
+                    <i class="fa-solid fa-smog"></i> Evening Gas Surge
+                  </div>
+                  <div class="text-[11px] text-slate-400 font-mono mt-0.5">310 gCO2/kWh • Red Alert Gate</div>
+                </button>
+              </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="pt-3 border-t border-slate-800 flex items-center gap-3">
+              <button id="btn-apply-simulation" class="flex-1 bg-purple-600 hover:bg-purple-500 text-white font-semibold text-xs py-2.5 rounded-lg transition flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(168,85,247,0.3)]">
+                <i class="fa-solid fa-check"></i>
+                <span>Apply Simulation Override</span>
+              </button>
+              <button id="btn-reset-simulation" class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium text-xs px-4 py-2.5 rounded-lg border border-slate-700 transition">
+                Reset to Live
+              </button>
+            </div>
+          </div>
+
+          <!-- Instant Preview Box (Real-Time Reactive) -->
+          <div id="sim-preview-card" class="glass-card p-6 space-y-6 border-2 border-amber-500/80 flex flex-col justify-between transition-colors">
+            <div class="space-y-4">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                  <i class="fa-solid fa-eye text-sky-400"></i>
+                  Engine Response Preview
+                </span>
+                <span id="sim-preview-mode-badge" class="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider badge-amber">
+                  AMBER MODE EVALUATED
+                </span>
+              </div>
+
+              <div>
+                <h2 id="sim-preview-policy-title" class="text-xl font-black text-white">Constrained Dispatch - Priority Jobs Only</h2>
+                <p id="sim-preview-policy-desc" class="text-xs text-slate-400 mt-2 leading-relaxed">
+                  Fast PR checks and essential linters run immediately; resource-intensive batch jobs queued or throttled.
+                </p>
+              </div>
+
+              <!-- Projected impact metrics -->
+              <div class="grid grid-cols-2 gap-3 pt-2">
+                <div class="p-3 rounded-lg bg-slate-900/80 border border-slate-800">
+                  <span class="text-[11px] text-slate-400 block">Est. 10-Min Build Footprint</span>
+                  <span id="sim-preview-emissions" class="text-sm font-mono font-bold text-white">1.18 gCO2</span>
+                </div>
+                <div class="p-3 rounded-lg bg-slate-900/80 border border-slate-800">
+                  <span class="text-[11px] text-slate-400 block">Parallel Concurrency</span>
+                  <span class="text-sm font-mono font-bold text-amber-400">3 of 8 Runners</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Test simulated trigger -->
+            <div class="pt-4 border-t border-slate-800">
+              <button id="btn-sim-test-dispatch" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold text-xs py-3 rounded-lg transition flex items-center justify-center gap-2">
+                <i class="fa-solid fa-terminal text-emerald-400"></i>
+                <span>Test Dispatch Under Simulated Conditions</span>
+              </button>
+            </div>
+          </div>
+
+        </div>
+
+      </section>
+
+      <!-- ===================================================================
+           VIEW 5: SETTINGS & THRESHOLD CONFIGURATION
+           =================================================================== -->
+      <section id="view-settings" class="view-section hidden space-y-6">
+        
+        <!-- Header -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-800/60">
+          <div>
+            <h1 class="text-2xl font-black tracking-tight text-white flex items-center gap-2.5">
+              <span>Settings & Threshold Configuration</span>
+              <span class="text-xs font-normal text-slate-400 font-mono px-2 py-0.5 rounded bg-slate-800/80 border border-slate-700">Persisted</span>
+            </h1>
+            <p class="text-sm text-slate-400 mt-0.5">Configure carbon thresholds, CI runner power assumptions, and API data sources.</p>
+          </div>
+
+          <button id="btn-reset-defaults" class="text-xs text-red-400 hover:text-red-300 bg-red-950/40 hover:bg-red-950/70 border border-red-800/50 px-3.5 py-2 rounded-lg transition flex items-center gap-1.5">
+            <i class="fa-solid fa-rotate-left"></i>
+            <span>Reset to Defaults</span>
+          </button>
+        </div>
+
+        <form id="settings-form" class="space-y-6 max-w-4xl">
+          
+          <!-- Section 1: Carbon Intensity Thresholds -->
+          <div class="glass-card p-6 space-y-4">
+            <h3 class="font-bold text-base text-white flex items-center gap-2">
+              <i class="fa-solid fa-gauge text-emerald-400"></i>
+              <span>Carbon Gate Thresholds (gCO2/kWh)</span>
+            </h3>
+            <p class="text-xs text-slate-400 leading-relaxed">
+              Define the emission boundaries that govern when CI/CD workflows execute at full concurrency, throttle, or defer into queue.
+            </p>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+              <div class="space-y-1.5">
+                <label for="setting-thresh-green" class="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                  <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                  Green Upper Limit (Default: 100)
+                </label>
+                <input id="setting-thresh-green" type="number" min="10" max="300" required class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 font-mono focus:outline-none focus:border-emerald-500">
+                <span class="text-[11px] text-slate-400">Workloads below this value execute unconditionally.</span>
+              </div>
+
+              <div class="space-y-1.5">
+                <label for="setting-thresh-amber" class="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                  <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+                  Amber Upper Limit / Red Cutoff (Default: 250)
+                </label>
+                <input id="setting-thresh-amber" type="number" min="100" max="500" required class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 font-mono focus:outline-none focus:border-emerald-500">
+                <span class="text-[11px] text-slate-400">Above this threshold, all non-critical pipelines pause/defer.</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section 2: Runner Power & Execution Parameters -->
+          <div class="glass-card p-6 space-y-4">
+            <h3 class="font-bold text-base text-white flex items-center gap-2">
+              <i class="fa-solid fa-server text-sky-400"></i>
+              <span>Runner Engine Parameters</span>
+            </h3>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div class="space-y-1.5">
+                <label for="setting-power-kw" class="text-xs font-semibold text-slate-300">
+                  Assumed Power per Runner (kW)
+                </label>
+                <input id="setting-power-kw" type="number" step="0.01" min="0.01" max="1.0" value="0.05" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 font-mono focus:outline-none focus:border-emerald-500">
+                <span class="text-[11px] text-slate-400">Standard GitHub Actions 2-core VM consumes ~0.05 kW (50W).</span>
+              </div>
+
+              <div class="space-y-1.5">
+                <label for="setting-max-wait" class="text-xs font-semibold text-slate-300">
+                  Max Deferral Buffer (Seconds)
+                </label>
+                <input id="setting-max-wait" type="number" min="30" max="7200" value="120" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 font-mono focus:outline-none focus:border-emerald-500">
+                <span class="text-[11px] text-slate-400">Maximum queue wait time before triggering fallback dispatch.</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section 3: API Telemetry Provider -->
+          <div class="glass-card p-6 space-y-4">
+            <h3 class="font-bold text-base text-white flex items-center gap-2">
+              <i class="fa-solid fa-network-wired text-purple-400"></i>
+              <span>Grid Data Provider Integration</span>
+            </h3>
+
+            <!-- Radio Selection -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <label class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-700/80 flex items-start gap-3 cursor-pointer hover:border-slate-500 transition">
+                <input type="radio" id="provider-neso" name="provider_choice" value="neso_uk" checked class="mt-1 text-emerald-500 focus:ring-emerald-500">
+                <div>
+                  <span class="text-xs font-bold text-white block">National Grid ESO UK API</span>
+                  <span class="text-[11px] text-slate-400">Official open public API (api.carbonintensity.org.uk). No API key required.</span>
+                </div>
+              </label>
+
+              <label class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-700/80 flex items-start gap-3 cursor-pointer hover:border-slate-500 transition">
+                <input type="radio" id="provider-webhook" name="provider_choice" value="custom_webhook" class="mt-1 text-emerald-500 focus:ring-emerald-500">
+                <div>
+                  <span class="text-xs font-bold text-white block">Custom Webhook / Internal API</span>
+                  <span class="text-[11px] text-slate-400">Connect to ElectricityMaps, WattTime, or custom internal microservices.</span>
+                </div>
+              </label>
+            </div>
+
+            <!-- Custom Webhook URL and Token (conditional) -->
+            <div id="webhook-credentials-container" class="space-y-3 pt-3 border-t border-slate-800 hidden">
+              <div class="space-y-1.5">
+                <label for="setting-webhook-url" class="text-xs font-semibold text-slate-300">Custom API Endpoint URL</label>
+                <input id="setting-webhook-url" type="url" placeholder="https://api.internal-grid.io/v1/carbon" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 font-mono focus:outline-none focus:border-emerald-500">
+              </div>
+
+              <div class="space-y-1.5">
+                <label for="setting-webhook-token" class="text-xs font-semibold text-slate-300">Bearer Token / Secret Key</label>
+                <input id="setting-webhook-token" type="password" placeholder="ghp_sec_token_99..." class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 font-mono focus:outline-none focus:border-emerald-500">
+              </div>
+            </div>
+          </div>
+
+          <!-- Submit Button -->
+          <div class="flex items-center gap-3">
+            <button type="submit" class="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs px-6 py-3 rounded-lg transition flex items-center gap-2 shadow-[0_0_20px_rgba(16,185,129,0.3)]">
+              <i class="fa-solid fa-floppy-disk"></i>
+              <span>Save Configuration</span>
+            </button>
+            <span class="text-xs text-slate-400">Changes persist to scheduler/config.yaml and runtime state immediately.</span>
+          </div>
+
+        </form>
+
+      </section>
+
+    </main>
+  </div>
+
+  <!-- ================= Job Trigger Modal ================= -->
+  <div id="modal-new-job" class="modal-backdrop hidden">
+    <div class="glass-card max-w-md w-full mx-4 p-6 space-y-5 border border-slate-700 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h3 class="font-bold text-base text-white flex items-center gap-2">
+          <i class="fa-solid fa-rocket text-emerald-400"></i>
+          <span>Trigger New CI/CD Job</span>
+        </h3>
+        <button id="btn-close-job-modal" class="text-slate-400 hover:text-white">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <form id="form-new-job" class="space-y-4">
+        <div class="space-y-1.5">
+          <label for="input-job-name" class="text-xs font-semibold text-slate-300">Pipeline Job Preset / Name</label>
+          <select id="input-job-name" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-emerald-500">
+            <option value="Run PyTest Suite & Coverage">Run PyTest Suite & Coverage</option>
+            <option value="Docker Image Multi-Arch Build & Push">Docker Image Multi-Arch Build & Push</option>
+            <option value="Frontend Next.js Static Export">Frontend Next.js Static Export</option>
+            <option value="End-to-End Cypress Suite">End-to-End Cypress Suite</option>
+            <option value="Nightly ML Model Retrain & Benchmark">Nightly ML Model Retrain & Benchmark (Heavy)</option>
+            <option value="Database Migration Rollback Dry-Run">Database Migration Rollback Dry-Run</option>
+            <option value="Security SAST Vulnerability Scan">Security SAST Vulnerability Scan</option>
+          </select>
+        </div>
+
+        <div class="space-y-1.5">
+          <label for="input-job-branch" class="text-xs font-semibold text-slate-300">Git Branch</label>
+          <input id="input-job-branch" type="text" value="main" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 font-mono focus:outline-none focus:border-emerald-500">
+        </div>
+
+        <div class="pt-2">
+          <label class="flex items-start gap-2.5 cursor-pointer">
+            <input id="input-job-force" type="checkbox" class="mt-0.5 rounded bg-slate-900 border-slate-700 text-amber-500 focus:ring-amber-500">
+            <div>
+              <span class="text-xs font-semibold text-slate-200">Force Execution (Bypass Red Gate)</span>
+              <p class="text-[11px] text-slate-400">Allows emergency deployment even if grid carbon exceeds red threshold.</p>
+            </div>
+          </label>
+        </div>
+
+        <div class="pt-3 border-t border-slate-800 flex items-center justify-end gap-2.5">
+          <button id="btn-cancel-job-modal" type="button" class="bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium px-4 py-2 rounded-lg transition">
+            Cancel
+          </button>
+          <button type="submit" class="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs px-5 py-2 rounded-lg transition flex items-center gap-2 shadow-[0_0_15px_rgba(16,185,129,0.3)]">
+            <i class="fa-solid fa-paper-plane"></i>
+            <span>Dispatch Job</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div id="toast-container"></div>
+
+  <!-- Application Logic -->
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
+
