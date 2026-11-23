@@ -19,15 +19,17 @@ htmlcov/
 *.cover
 coverage.xml
 
-# Runtime Data (auto-generated — do not commit local run logs)
-data/runs.csv
+# Runtime Data — ignore local developer copies of these auto-generated files
 data/runtime_state.json
+data/sim_intensity.json
 
 # Keep the data directory itself tracked
 !data/.gitkeep
 
-# Simulation state file (local override — not for production commits)
-data/sim_intensity.json
+# runs.csv is intentionally NOT ignored here.
+# The GreenOps CI bot commits it after each green/amber pipeline run
+# so the repo accumulates a full emissions audit log.
+# Git will track it normally; the venv and local dev workflow never write to it.
 
 # IDE / Editor
 .vscode/

@@ -6,5 +6,5 @@ max_wait_seconds: 150
 assumed_power_kw: 0.06
 provider: neso_uk
 custom_webhook_url: https://api.internal-grid.io/v1/carbon
-simulated_intensity: 251.0
-simulation_enabled: True
+simulated_intensity: None
+simulation_enabled: False

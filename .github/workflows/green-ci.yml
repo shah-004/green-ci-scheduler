@@ -87,8 +87,20 @@ jobs:
           INTENSITY: ${{ needs.carbon-gate.outputs.intensity }}
         run: |
           python -c "from scheduler.estimate import log_run; log_run('$MODE', float('$INTENSITY'), 5.0)"
+
           git config --global user.name 'GreenOps Bot'
           git config --global user.email 'bot@greenops.local'
-          git add data/runs.csv
-          git commit -m 'Auto-log run emissions [skip ci]' || echo 'No changes to commit'
-          git push || echo 'Push skipped'
+
+          # Stage runs.csv with -f to override any .gitignore rule that may
+          # exist on the branch being checked out.  This is a no-op if the
+          # file is not ignored, and safe if it is.
+          git add -f data/runs.csv
+
+          # Only commit when there is actually something staged.
+          # `git diff --cached --quiet` exits 0 (no diff) or 1 (changes staged).
+          if ! git diff --cached --quiet; then
+            git commit -m "ci: auto-log run emissions [skip ci]"
+            git push
+          else
+            echo "No staged changes to commit — runs.csv unchanged or empty."
+          fi

@@ -1,0 +1,15 @@
+timestamp,job_name,mode,intensity,runtime_min,energy_kwh,co2_grams,type
+2026-11-10T19:52:06.864065Z,test-run,green,92.0,4.5,0.0037,0.34,actual
+2026-11-10T19:59:25.545472Z,Test PyTest Runner,green,65.0,2.9,0.0024,0.16,actual
+2026-11-10T19:59:25.589998Z,Test Emergency Hotfix,red,320.0,2.5,0.0021,0.67,actual
+2026-11-10T19:59:49.328289+00:00,Test PyTest Runner,green,65.0,4.2,0.0042,0.27,actual
+2026-11-10T19:59:49.373885+00:00,Test Emergency Hotfix,red,320.0,2.2,0.0022,0.7,actual
+2026-11-10T20:02:13.309923+00:00,Test PyTest Runner,green,65.0,3.5,0.0035,0.23,actual
+2026-11-10T20:02:13.359190+00:00,Test Emergency Hotfix,red,320.0,3.2,0.0032,1.02,actual
+2026-11-10T20:02:43.623667+00:00,E2E Probe Job,amber,142.0,3.9,0.0039,0.55,actual
+2026-11-10T20:03:32.105164+00:00,Test PyTest Runner,green,65.0,2.1,0.0021,0.14,actual
+2026-11-10T20:03:32.150588+00:00,Test Emergency Hotfix,red,320.0,2.3,0.0023,0.74,actual
+2026-11-23T19:09:09.536204+00:00,Test PyTest Runner,green,65.0,2.6,0.0026,0.17,actual
+2026-11-23T19:09:09.567545+00:00,Test Emergency Hotfix,red,320.0,2.2,0.0022,0.7,actual
+2026-11-23T19:13:31.455259+00:00,Test PyTest Runner,green,65.0,2.6,0.0026,0.17,actual
+2026-11-23T19:13:31.504033+00:00,Test Emergency Hotfix,red,320.0,2.2,0.0022,0.7,actual
