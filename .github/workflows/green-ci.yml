@@ -11,6 +11,9 @@ on:
         default: '100'
         type: string
 
+permissions:
+  contents: write   # required for git push in deploy-or-trim
+
 jobs:
   carbon-gate:
     runs-on: ubuntu-latest
