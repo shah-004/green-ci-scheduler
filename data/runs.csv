@@ -14,3 +14,4 @@ timestamp,job_name,mode,intensity,runtime_min,energy_kwh,co2_grams,type
 2026-11-23T19:13:31.455259+00:00,Test PyTest Runner,green,65.0,2.6,0.0026,0.17,actual
 2026-11-23T19:13:31.504033+00:00,Test Emergency Hotfix,red,320.0,2.2,0.0022,0.7,actual
 2026-11-24T11:45:47.363290+00:00,ci-pipeline-job,amber,100.0,5.0,0.005,0.5,actual
+2026-11-26T15:46:42.716228+00:00,ci-pipeline-job,amber,100.0,5.0,0.005,0.5,actual
